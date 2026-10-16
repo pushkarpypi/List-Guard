@@ -197,6 +197,41 @@ export async function deleteLocalScan(id: string): Promise<void> {
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
-    console.error("Failed to delete secure scan:", error);
+    console.error("Failed to delete local scan:", error);
+  }
+}
+
+/**
+ * Save merchant settings & EU Responsible Person securely in IndexedDB
+ */
+export async function saveMerchantProfileLocally(profile: any): Promise<void> {
+  if (typeof window === "undefined") return;
+  return saveScanSummaryLocally({ id: "merchant_profile", ...profile, createdAt: new Date().toISOString() });
+}
+
+/**
+ * Get merchant settings & EU Responsible Person from IndexedDB
+ */
+export async function getMerchantProfileLocally(): Promise<any | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const db = await initDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get("merchant_profile");
+      req.onsuccess = async () => {
+        if (!req.result) return resolve(null);
+        try {
+          const decrypted = await decryptData(req.result.payload, req.result.iv);
+          resolve(decrypted);
+        } catch {
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
   }
 }

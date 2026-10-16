@@ -15,7 +15,10 @@ export function checkProductCompliance(
   config: StoreConfig
 ): RuleResult[] {
   const results: RuleResult[] = [];
-  const textToAnalyze = `${product.title} ${product.description} ${product.tags.join(" ")}`.toLowerCase();
+  const title = product?.title || "";
+  const description = product?.description || "";
+  const tags = Array.isArray(product?.tags) ? product.tags : [];
+  const textToAnalyze = `${title} ${description} ${tags.join(" ")}`.toLowerCase();
 
   for (const rule of COMPLIANCE_RULES) {
     // Only check rules applicable to selected regions
@@ -204,9 +207,10 @@ function checkBatchNumber(
   id: string, name: string, category: RuleCategory, severity: "critical" | "warning" | "info",
   product: Product, regions: Region[]
 ): RuleResult {
-  const hasSKU = product.variants.some((v) => v.sku && v.sku.length > 0);
-  const textHasBatch = `${product.title} ${product.description}`.toLowerCase().includes("batch") ||
-    `${product.title} ${product.description}`.toLowerCase().includes("lot number");
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const hasSKU = variants.some((v) => v?.sku && v.sku.length > 0);
+  const textHasBatch = `${product?.title || ""} ${product?.description || ""}`.toLowerCase().includes("batch") ||
+    `${product?.title || ""} ${product?.description || ""}`.toLowerCase().includes("lot number");
   return {
     ruleId: id,
     ruleName: name,
@@ -376,9 +380,10 @@ function checkEUDuty2026(
   id: string, name: string, category: RuleCategory, severity: "critical" | "warning" | "info",
   product: Product, config: StoreConfig, regions: Region[]
 ): RuleResult {
-  const isLowValue = product.price < 150;
+  const price = Number(product?.price) || 0;
+  const isLowValue = price < 150;
   const shipsToEU = config.regions.includes("EU");
-  const text = `${product.title} ${product.description}`.toLowerCase();
+  const text = `${product?.title || ""} ${product?.description || ""}`.toLowerCase();
   const hasDutyNote = text.includes("duty") || text.includes("customs") || text.includes("import tax");
 
   if (isLowValue && shipsToEU && !hasDutyNote) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, PlusCircle, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowRight, PlusCircle, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import { getLocalScanHistory } from "@/lib/storage";
 import { ScoreRing } from "@/components/compliance/score-ring";
@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const [history, setHistory] = useState<ScanSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const latestScan = history[0];
 
   useEffect(() => {
     async function loadHistory() {
@@ -28,15 +29,46 @@ export default function DashboardPage() {
     loadHistory();
   }, []);
 
-  const latestScan = history[0] || null;
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center min-h-[500px]">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const handleExportCSV = () => {
+    if (!latestScan || !latestScan.results) return;
+    const headers = ["Product Title", "Rule Name", "Category", "Severity", "Status", "Issue Message", "Suggested Fix", "Affected Regions"];
+    const rows: string[][] = [];
+    latestScan.results.forEach((product) => {
+      if (product.violations && product.violations.length > 0) {
+        product.violations.forEach((v) => {
+          rows.push([
+            `"${(product.productTitle || "").replace(/"/g, '""')}"`,
+            `"${(v.ruleName || "").replace(/"/g, '""')}"`,
+            v.category,
+            v.severity,
+            v.passed ? "PASSED" : "FAILED",
+            `"${(v.message || "").replace(/"/g, '""')}"`,
+            `"${(v.details || "").replace(/"/g, '""')}"`,
+            `"${(v.affectedRegions || []).join("; ")}"`,
+          ]);
+        });
+      } else {
+        rows.push([
+          `"${(product.productTitle || "").replace(/"/g, '""')}"`,
+          "All Checks",
+          "compliance",
+          "info",
+          "PASSED",
+          "Compliant with all active region rules",
+          "",
+          "",
+        ]);
+      }
+    });
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ListGuard-Audit-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
@@ -203,6 +235,15 @@ export default function DashboardPage() {
                 <ShieldCheck className="w-5 h-5 text-emerald-500" />
                 Product Breakdown
               </h3>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportCSV}
+                className="text-xs h-8 gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5 text-primary" />
+                Export Audit Report (CSV)
+              </Button>
             </div>
             
             <ScanResultsTable 

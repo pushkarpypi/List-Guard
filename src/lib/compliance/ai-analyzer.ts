@@ -3,6 +3,22 @@ import type { Product, Region, GeneratedFix, RuleResult } from "../types";
 import { COMPLIANCE_RULES } from "./rules";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-flash-latest"];
+
+async function generateWithFailover(prompt: string | any[]): Promise<string> {
+  let lastError: any = null;
+  for (const modelName of FALLBACK_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt as any);
+      return result.response.text();
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Gemini model ${modelName} failed, trying next candidate...`);
+    }
+  }
+  throw lastError || new Error("All Gemini model candidates failed.");
+}
 
 /**
  * Use Gemini AI to perform deep analysis on a product listing
@@ -12,7 +28,6 @@ export async function analyzeProductWithAI(
   regions: Region[]
 ): Promise<RuleResult[]> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `You are an e-commerce compliance expert. Analyze this product listing for regulatory violations.
 
@@ -48,8 +63,7 @@ Return ONLY valid JSON in this exact format:
   "risk_summary": "One sentence overall risk assessment"
 }`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await generateWithFailover(prompt);
 
     // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -88,9 +102,6 @@ export async function generateFixText(
   language: "en" | "es" = "en"
 ): Promise<GeneratedFix | null> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-
-    // Find the rule definition
     const rule = COMPLIANCE_RULES.find((r) => r.id === violation.ruleId);
     const fixPrompt = rule?.fixPrompt || `Generate compliance fix text for: ${violation.message}`;
 
@@ -105,8 +116,7 @@ ${language === "es" ? "Generate the text entirely in Spanish." : ""}
 
 IMPORTANT: Return ONLY the ready-to-use text that can be directly copy-pasted into a product listing or policy page. No explanations or metadata.`;
 
-    const result = await model.generateContent(prompt);
-    const fixContent = result.response.text().trim();
+    const fixContent = (await generateWithFailover(prompt)).trim();
 
     return {
       ruleId: violation.ruleId,
