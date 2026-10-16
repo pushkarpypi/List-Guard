@@ -29,9 +29,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protected routes - redirect to login if not authenticated
+  const isGuest = request.cookies.get("listguard_guest")?.value === "true";
+
+  // Protected routes - redirect to login if not authenticated and not guest
   if (
     !user &&
+    !isGuest &&
     request.nextUrl.pathname.startsWith("/app") &&
     !request.nextUrl.pathname.startsWith("/app/login")
   ) {

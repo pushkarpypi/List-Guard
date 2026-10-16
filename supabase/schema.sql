@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.shopify_connections (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     shop_domain TEXT NOT NULL,
     access_token TEXT NOT NULL,
-    scopes TEXT DEFAULT 'read_products,read_shipping',
+    scopes TEXT DEFAULT 'read_products,write_products,read_shipping',
     realtime_active BOOLEAN NOT NULL DEFAULT FALSE,
     connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

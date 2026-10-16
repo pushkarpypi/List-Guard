@@ -45,8 +45,9 @@ export default function LoginPage() {
   };
 
   const handleGuestMode = () => {
-    // Store guest flag in sessionStorage
+    // Store guest flag in sessionStorage and cookie for middleware
     sessionStorage.setItem("listguard_guest", "true");
+    document.cookie = "listguard_guest=true; path=/; max-age=86400; SameSite=Lax";
     router.push("/app/dashboard");
   };
 
